@@ -21,6 +21,8 @@ var Cell = /** @class */ (function () {
         outputPorts.forEach(function (op) {
             op.parentNode = _this;
         });
+        var lineChars = Math.max.apply(Math, inputPorts.filter(function (p) { return p.InsideKey; }).map(function (p) { return p.InsideKey.length; })) + Math.max.apply(Math, outputPorts.filter(function (p) { return p.InsideKey; }).map(function (p) { return p.InsideKey.length; }));
+        this.genericWidth = 6 * Math.max(lineChars, 0) + 30;
     }
     /**
      * creates a Cell from a Yosys Port
@@ -188,10 +190,10 @@ var Cell = /** @class */ (function () {
             var inTemplates_1 = Skin_1.default.getPortsWithPrefix(template, 'in');
             var outTemplates_1 = Skin_1.default.getPortsWithPrefix(template, 'out');
             var inPorts = this.inputPorts.map(function (ip, i) {
-                return ip.getGenericElkPort(i, inTemplates_1, 'in');
+                return ip.getGenericElkPort(i, inTemplates_1, 'in', _this.genericWidth);
             });
             var outPorts = this.outputPorts.map(function (op, i) {
-                return op.getGenericElkPort(i, outTemplates_1, 'out');
+                return op.getGenericElkPort(i, outTemplates_1, 'out', _this.genericWidth);
             });
             var cell = {
                 id: this.key,
@@ -201,6 +203,9 @@ var Cell = /** @class */ (function () {
                 layoutOptions: layoutAttrs,
                 labels: [],
             };
+            if (type === "generic") {
+                cell.width = this.genericWidth;
+            }
             if (fixedPosX) {
                 cell.x = fixedPosX;
             }
@@ -208,6 +213,7 @@ var Cell = /** @class */ (function () {
                 cell.y = fixedPosY;
             }
             this.addLabels(template, cell);
+            cell.labels.forEach(function (l) { return l.x = _this.genericWidth / 2; }); // Center the elk labels
             return cell;
         }
         var ports = Skin_1.default.getPortsWithPrefix(template, '').map(function (tp) {
@@ -219,7 +225,7 @@ var Cell = /** @class */ (function () {
                 y: Number(tp[1]['s:y']),
             };
         });
-        var nodeWidth = Number(template[1]['s:width']);
+        var nodeWidth = this.genericWidth;
         var ret = {
             id: this.key,
             width: nodeWidth,
@@ -238,6 +244,7 @@ var Cell = /** @class */ (function () {
         return ret;
     };
     Cell.prototype.render = function (cell) {
+        var _this = this;
         var template = this.getTemplate();
         var tempclone = clone(template);
         for (var _i = 0, _a = cell.labels; _i < _a.length; _i++) {
@@ -257,7 +264,7 @@ var Cell = /** @class */ (function () {
         tempclone[1].id = 'cell_' + this.key;
         tempclone[1].transform = 'translate(' + cell.x + ',' + cell.y + ')';
         if (this.type === '$_split_') {
-            setGenericSize(tempclone, Number(this.getGenericHeight()));
+            setGenericSize(tempclone, this.genericWidth, Number(this.getGenericHeight()));
             var outPorts_1 = Skin_1.default.getPortsWithPrefix(template, 'out');
             var gap_1 = Number(outPorts_1[1][1]['s:y']) - Number(outPorts_1[0][1]['s:y']);
             var startY_1 = Number(outPorts_1[0][1]['s:y']);
@@ -272,7 +279,7 @@ var Cell = /** @class */ (function () {
             });
         }
         else if (this.type === '$_join_') {
-            setGenericSize(tempclone, Number(this.getGenericHeight()));
+            setGenericSize(tempclone, this.genericWidth, Number(this.getGenericHeight()));
             var inPorts_1 = Skin_1.default.getPortsWithPrefix(template, 'in');
             var gap_2 = Number(inPorts_1[1][1]['s:y']) - Number(inPorts_1[0][1]['s:y']);
             var startY_2 = Number(inPorts_1[0][1]['s:y']);
@@ -287,7 +294,7 @@ var Cell = /** @class */ (function () {
             });
         }
         else if (template[1]['s:type'] === 'generic') {
-            setGenericSize(tempclone, Number(this.getGenericHeight()));
+            setGenericSize(tempclone, this.genericWidth, Number(this.getGenericHeight()));
             var inPorts_2 = Skin_1.default.getPortsWithPrefix(template, 'in');
             var ingap_1 = Number(inPorts_2[1][1]['s:y']) - Number(inPorts_2[0][1]['s:y']);
             var instartY_1 = Number(inPorts_2[0][1]['s:y']);
@@ -304,18 +311,29 @@ var Cell = /** @class */ (function () {
                 portClone[1].transform = 'translate(' + inPorts_2[1][1]['s:x'] + ','
                     + (instartY_1 + i * ingap_1) + ')';
                 portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.Key;
+                if (port.InsideKey) {
+                    portClone.push(['text', { x: 5, y: 0, class: "insideInputPortLabel" }, port.InsideKey]);
+                    portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.InsideKey;
+                }
                 tempclone.push(portClone);
             });
             this.outputPorts.forEach(function (port, i) {
                 var portClone = clone(outPorts_2[0]);
                 portClone[portClone.length - 1][2] = port.Key;
-                portClone[1].transform = 'translate(' + outPorts_2[1][1]['s:x'] + ','
+                portClone[1].transform = 'translate(' + _this.genericWidth + ','
                     + (outstartY_1 + i * outgap_1) + ')';
                 portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.Key;
+                if (port.InsideKey) {
+                    portClone.push(['text', { x: -3, y: 0, class: "insideOutputPortLabel" }, port.InsideKey]);
+                    portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.InsideKey;
+                }
                 tempclone.push(portClone);
             });
             // first child of generic must be a text node.
             tempclone[2][2] = this.type;
+            //center the svg labels
+            tempclone[2][1].x = this.genericWidth / 2;
+            tempclone[3][1].x = this.genericWidth / 2;
         }
         setClass(tempclone, '$cell_id', 'cell_' + this.key);
         return tempclone;
@@ -372,10 +390,11 @@ var Cell = /** @class */ (function () {
     return Cell;
 }());
 exports.default = Cell;
-function setGenericSize(tempclone, height) {
+function setGenericSize(tempclone, width, height) {
     onml.traverse(tempclone, {
         enter: function (node) {
             if (node.name === 'rect' && node.attr['s:generic'] === 'body') {
+                node.attr.width = width;
                 node.attr.height = height;
             }
         },
