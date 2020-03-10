@@ -82,6 +82,7 @@ export default class Cell {
     protected inputPorts: Port[];
     protected outputPorts: Port[];
     protected attributes: Yosys.CellAttributes;
+    private genericWidth: number;
 
     constructor(key: string,
                 type: string,
@@ -99,6 +100,10 @@ export default class Cell {
         outputPorts.forEach((op) => {
             op.parentNode = this;
         });
+
+        const lineChars = Math.max(...inputPorts .filter((p) => p.Key).map((p) => p.Key.length)) +
+                          Math.max(...outputPorts.filter((p) => p.Key).map((p) => p.Key.length));
+        this.genericWidth = 6 * Math.max(lineChars, 0) + 30;
     }
 
     public get Type(): string {
@@ -200,9 +205,9 @@ export default class Cell {
             const inTemplates: any[] = Skin.getPortsWithPrefix(template, 'in');
             const outTemplates: any[] = Skin.getPortsWithPrefix(template, 'out');
             const inPorts = this.inputPorts.map((ip, i) =>
-                ip.getGenericElkPort(i, inTemplates, 'in'));
+                ip.getGenericElkPort(i, inTemplates, 'in', this.genericWidth));
             const outPorts = this.outputPorts.map((op, i) =>
-                op.getGenericElkPort(i, outTemplates, 'out'));
+                op.getGenericElkPort(i, outTemplates, 'out', this.genericWidth));
             const cell: ElkModel.Cell = {
                 id: this.key,
                 width: Number(template[1]['s:width']),
@@ -211,6 +216,9 @@ export default class Cell {
                 layoutOptions: layoutAttrs,
                 labels: [],
             };
+            if (type === "generic") {
+                cell.width = this.genericWidth;
+            }
             if (fixedPosX) {
                 cell.x = fixedPosX;
             }
@@ -218,6 +226,7 @@ export default class Cell {
                 cell.y = fixedPosY;
             }
             this.addLabels(template, cell);
+            cell.labels.forEach((l) => l.x = this.genericWidth/2); // Center the elk labels
             return cell;
         }
         const ports: ElkModel.Port[] = Skin.getPortsWithPrefix(template, '').map((tp) => {
@@ -229,7 +238,7 @@ export default class Cell {
                 y: Number(tp[1]['s:y']),
             };
         });
-        const nodeWidth: number = Number(template[1]['s:width']);
+        const nodeWidth: number = this.genericWidth;
         const ret: ElkModel.Cell = {
             id: this.key,
             width: nodeWidth,
@@ -267,7 +276,7 @@ export default class Cell {
         tempclone[1].id = 'cell_' + this.key;
         tempclone[1].transform = 'translate(' + cell.x + ',' + cell.y + ')';
         if (this.type === '$_split_') {
-            setGenericSize(tempclone, Number(this.getGenericHeight()));
+            setGenericSize(tempclone, this.genericWidth, Number(this.getGenericHeight()));
             const outPorts = Skin.getPortsWithPrefix(template, 'out');
             const gap: number = Number(outPorts[1][1]['s:y']) - Number(outPorts[0][1]['s:y']);
             const startY: number = Number(outPorts[0][1]['s:y']);
@@ -281,7 +290,7 @@ export default class Cell {
                 tempclone.push(portClone);
             });
         } else if (this.type === '$_join_') {
-            setGenericSize(tempclone, Number(this.getGenericHeight()));
+            setGenericSize(tempclone, this.genericWidth, Number(this.getGenericHeight()));
             const inPorts = Skin.getPortsWithPrefix(template, 'in');
             const gap: number = Number(inPorts[1][1]['s:y']) - Number(inPorts[0][1]['s:y']);
             const startY: number = Number(inPorts[0][1]['s:y']);
@@ -295,7 +304,7 @@ export default class Cell {
                 tempclone.push(portClone);
             });
         } else if (template[1]['s:type'] === 'generic') {
-            setGenericSize(tempclone, Number(this.getGenericHeight()));
+            setGenericSize(tempclone, this.genericWidth, Number(this.getGenericHeight()));
             const inPorts = Skin.getPortsWithPrefix(template, 'in');
             const ingap = Number(inPorts[1][1]['s:y']) - Number(inPorts[0][1]['s:y']);
             const instartY = Number(inPorts[0][1]['s:y']);
@@ -317,13 +326,16 @@ export default class Cell {
             this.outputPorts.forEach((port, i) => {
                 const portClone = clone(outPorts[0]);
                 portClone[portClone.length - 1][2] = port.Key;
-                portClone[1].transform = 'translate(' + outPorts[1][1]['s:x'] + ','
+                portClone[1].transform = 'translate(' + this.genericWidth + ','
                     + (outstartY + i * outgap) + ')';
                 portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.Key;
                 tempclone.push(portClone);
             });
             // first child of generic must be a text node.
             tempclone[2][2] = this.type;
+            //center the svg labels
+            tempclone[2][1].x = this.genericWidth / 2;
+            tempclone[3][1].x = this.genericWidth / 2;
         }
         setClass(tempclone, '$cell_id', 'cell_' + this.key);
         return tempclone;
@@ -378,10 +390,11 @@ export default class Cell {
 
 }
 
-function setGenericSize(tempclone, height) {
+function setGenericSize(tempclone, width, height) {
     onml.traverse(tempclone, {
         enter: (node) => {
             if (node.name === 'rect' && node.attr['s:generic'] === 'body') {
+                node.attr.width = width;
                 node.attr.height = height;
             }
         },

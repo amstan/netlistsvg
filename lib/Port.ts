@@ -72,6 +72,7 @@ export class Port {
         index: number,
         templatePorts: any[],
         dir: string,
+        genericWidth: number,
     ): ElkModel.Port {
         const nkey = this.parentNode.Key;
         const type = this.parentNode.getTemplate()[1]['s:type'];
@@ -105,6 +106,14 @@ export class Port {
                     height: 11,
                 }];
             }
+
+            if (type === 'generic') {
+                if (dir === 'out') {
+                    ret.x = genericWidth;
+                    ret.labels[0].x = genericWidth;
+                }
+            }
+
             return ret;
         } else {
             const gap: number = Number(templatePorts[1][1]['s:y']) - Number(templatePorts[0][1]['s:y']);
@@ -124,6 +133,10 @@ export class Port {
                     width: (6 * this.key.length),
                     height: 11,
                 }];
+                if (dir === 'out') {
+                    ret.x = genericWidth;
+                    ret.labels[0].x = genericWidth;
+                }
             }
             return ret;
         }
