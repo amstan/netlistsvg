@@ -101,8 +101,8 @@ export default class Cell {
             op.parentNode = this;
         });
 
-        const lineChars = Math.max(...inputPorts .filter((p) => p.Key).map((p) => p.Key.length)) +
-                          Math.max(...outputPorts.filter((p) => p.Key).map((p) => p.Key.length));
+        const lineChars = Math.max(...inputPorts .filter((p) => p.InsideKey).map((p) => p.InsideKey.length)) +
+                          Math.max(...outputPorts.filter((p) => p.InsideKey).map((p) => p.InsideKey.length));
         this.genericWidth = 6 * Math.max(lineChars, 0) + 30;
     }
 
@@ -321,6 +321,10 @@ export default class Cell {
                 portClone[1].transform = 'translate(' + inPorts[1][1]['s:x'] + ','
                     + (instartY + i * ingap) + ')';
                 portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.Key;
+                if (port.InsideKey) {
+                    portClone.push(['text', {x: 5, y: 0, class: "insideInputPortLabel"}, port.InsideKey]);
+                    portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.InsideKey;
+                }
                 tempclone.push(portClone);
             });
             this.outputPorts.forEach((port, i) => {
@@ -329,6 +333,10 @@ export default class Cell {
                 portClone[1].transform = 'translate(' + this.genericWidth + ','
                     + (outstartY + i * outgap) + ')';
                 portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.Key;
+                if (port.InsideKey) {
+                    portClone.push(['text', {x: -3, y: 0, class: "insideOutputPortLabel"}, port.InsideKey]);
+                    portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.InsideKey;
+                }
                 tempclone.push(portClone);
             });
             // first child of generic must be a text node.

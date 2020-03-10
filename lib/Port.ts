@@ -4,13 +4,30 @@ import Yosys from './YosysModel';
 import _ = require('lodash');
 import { ElkModel } from './elkGraph';
 
+const expandedPinNameRegex = /([^\s\(]+)\s?(?:\((.*)\))?/;
+// for a pin that looks like PIN_NAME (PIN_NUMBERS), it will
+// capture the PIN_NAME and the optional PIN_NUMBERS in separate groups
+
+function extractPinNames(key: string) {
+    var keyMatch = key.match(expandedPinNameRegex);
+    if (keyMatch[2] === undefined) {
+        return [keyMatch[1], undefined];
+    } else {
+        return [keyMatch[2], keyMatch[1]];
+    }
+}
+
 export class Port {
     public parentNode?: Cell;
     private key: string;
+    private insideKey: string;
     private value: number[] | Yosys.Signals;
 
     constructor(key: string, value: number[] | Yosys.Signals) {
-        this.key = key;
+        var pin_names = extractPinNames(key);
+        this.key = pin_names[0];
+        this.insideKey = pin_names[1];
+
         this.value = value;
     }
 
@@ -18,8 +35,12 @@ export class Port {
         return this.key;
     }
 
+    public get InsideKey() {
+        return this.insideKey;
+    }
+
     public keyIn(pids: string[]): boolean {
-        return _.includes(pids, this.key);
+        return _.includes(pids.map((o) => extractPinNames(o)[0]), this.key);
     }
 
     public maxVal() {

@@ -21,7 +21,7 @@ var Cell = /** @class */ (function () {
         outputPorts.forEach(function (op) {
             op.parentNode = _this;
         });
-        var lineChars = Math.max.apply(Math, inputPorts.filter(function (p) { return p.Key; }).map(function (p) { return p.Key.length; })) + Math.max.apply(Math, outputPorts.filter(function (p) { return p.Key; }).map(function (p) { return p.Key.length; }));
+        var lineChars = Math.max.apply(Math, inputPorts.filter(function (p) { return p.InsideKey; }).map(function (p) { return p.InsideKey.length; })) + Math.max.apply(Math, outputPorts.filter(function (p) { return p.InsideKey; }).map(function (p) { return p.InsideKey.length; }));
         this.genericWidth = 6 * Math.max(lineChars, 0) + 30;
     }
     /**
@@ -311,6 +311,10 @@ var Cell = /** @class */ (function () {
                 portClone[1].transform = 'translate(' + inPorts_2[1][1]['s:x'] + ','
                     + (instartY_1 + i * ingap_1) + ')';
                 portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.Key;
+                if (port.InsideKey) {
+                    portClone.push(['text', { x: 5, y: 0, class: "insideInputPortLabel" }, port.InsideKey]);
+                    portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.InsideKey;
+                }
                 tempclone.push(portClone);
             });
             this.outputPorts.forEach(function (port, i) {
@@ -319,6 +323,10 @@ var Cell = /** @class */ (function () {
                 portClone[1].transform = 'translate(' + _this.genericWidth + ','
                     + (outstartY_1 + i * outgap_1) + ')';
                 portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.Key;
+                if (port.InsideKey) {
+                    portClone.push(['text', { x: -3, y: 0, class: "insideOutputPortLabel" }, port.InsideKey]);
+                    portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.InsideKey;
+                }
                 tempclone.push(portClone);
             });
             // first child of generic must be a text node.

@@ -2,9 +2,23 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var Cell_1 = require("./Cell");
 var _ = require("lodash");
+var expandedPinNameRegex = /([^\s\(]+)\s?(?:\((.*)\))?/;
+// for a pin that looks like PIN_NAME (PIN_NUMBERS), it will
+// capture the PIN_NAME and the optional PIN_NUMBERS in separate groups
+function extractPinNames(key) {
+    var keyMatch = key.match(expandedPinNameRegex);
+    if (keyMatch[2] === undefined) {
+        return [keyMatch[1], undefined];
+    }
+    else {
+        return [keyMatch[2], keyMatch[1]];
+    }
+}
 var Port = /** @class */ (function () {
     function Port(key, value) {
-        this.key = key;
+        var pin_names = extractPinNames(key);
+        this.key = pin_names[0];
+        this.insideKey = pin_names[1];
         this.value = value;
     }
     Object.defineProperty(Port.prototype, "Key", {
@@ -14,8 +28,15 @@ var Port = /** @class */ (function () {
         enumerable: true,
         configurable: true
     });
+    Object.defineProperty(Port.prototype, "InsideKey", {
+        get: function () {
+            return this.insideKey;
+        },
+        enumerable: true,
+        configurable: true
+    });
     Port.prototype.keyIn = function (pids) {
-        return _.includes(pids, this.key);
+        return _.includes(pids.map(function (o) { return extractPinNames(o)[0]; }), this.key);
     };
     Port.prototype.maxVal = function () {
         return _.max(_.map(this.value, function (v) { return Number(v); }));
