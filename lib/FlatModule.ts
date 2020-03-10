@@ -12,6 +12,7 @@ export interface FlatPort {
 
 export interface Wire {
     netName: string;
+    displayNetName: boolean;
     drivers: FlatPort[];
     riders: FlatPort[];
     laterals: FlatPort[];
@@ -21,6 +22,7 @@ export class FlatModule {
     public moduleName: string;
     public nodes: Cell[];
     public wires: Wire[];
+    public netnames: Yosys.NetNameMap;
 
     constructor(netlist: Yosys.Netlist) {
         this.moduleName = null;
@@ -36,6 +38,7 @@ export class FlatModule {
         const top = netlist.modules[this.moduleName];
         const ports = _.map(top.ports, Cell.fromPort);
         const cells = _.map(top.cells, (c, key) => Cell.fromYosysCell(c, key));
+        this.netnames = top.netnames;
         this.nodes = cells.concat(ports);
         // populated by createWires
         this.wires = [];
@@ -100,12 +103,28 @@ export class FlatModule {
             const drivers: FlatPort[] = driversByNet[net] || [];
             const riders: FlatPort[] = ridersByNet[net] || [];
             const laterals: FlatPort[] = lateralsByNet[net] || [];
-            const wire: Wire = { netName: net, drivers, riders, laterals};
+            var netId = net.slice(1, net.length - 1);
+
+            var netName = netId;
+            var displayNetName = false;
+            for (let possibleNetName in this.netnames) {
+                const candidate_net: Yosys.Net = this.netnames[possibleNetName];
+
+                if(candidate_net.bits.includes(Number(netId))) {
+                    netName = possibleNetName;
+                    displayNetName = !candidate_net.hide_name;
+                    break;
+                }
+            }
+
+
+            const wire: Wire = { netName: netName, displayNetName: displayNetName, drivers, riders, laterals};
+
             drivers.concat(riders).concat(laterals).forEach((port) => {
                 port.wire = wire;
             });
             return wire;
-        });
+        }, this);
         this.wires = wires;
     }
 }

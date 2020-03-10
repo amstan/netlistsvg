@@ -88,20 +88,20 @@ namespace Yosys {
         NoHide,
     }
 
-    interface Net {
+    export interface Net {
         bits: Signals;
         hide_name: HideName;
         attributes: NetAttributes;
     }
 
-    interface NetNameMap {
+    export interface NetNameMap {
         [netName: string]: Net;
     }
 
     export interface Module {
         ports: ExtPortMap;
         cells: CellMap;
-        netNames: NetNameMap;
+        netnames?: NetNameMap;
         attributes?: ModuleAttributes;
     }
 }

@@ -127,6 +127,9 @@ function route(sourcePorts, targetPorts, edges) {
                 sources: [sourceKey],
                 targets: [targetKey],
             };
+            if (targetPort.wire.displayNetName) {
+                edge.labels = [{ text: targetPort.wire.netName, height: 16, width: (6 * targetPort.wire.netName.length), }];
+            }
             ElkModel.wireNameLookup[id] = targetPort.wire.netName;
             if (sourcePort.parentNode.type !== '$dff') {
                 edge.layoutOptions = { 'org.eclipse.elk.layered.priority.direction': 10 };

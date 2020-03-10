@@ -19,6 +19,7 @@ var FlatModule = /** @class */ (function () {
         var top = netlist.modules[this.moduleName];
         var ports = _.map(top.ports, Cell_1.default.fromPort);
         var cells = _.map(top.cells, function (c, key) { return Cell_1.default.fromYosysCell(c, key); });
+        this.netnames = top.netnames;
         this.nodes = cells.concat(ports);
         // populated by createWires
         this.wires = [];
@@ -53,6 +54,7 @@ var FlatModule = /** @class */ (function () {
     };
     // search through all the ports to find all of the wires
     FlatModule.prototype.createWires = function () {
+        var _this = this;
         var layoutProps = Skin_1.default.getProperties();
         var ridersByNet = {};
         var driversByNet = {};
@@ -66,12 +68,23 @@ var FlatModule = /** @class */ (function () {
             var drivers = driversByNet[net] || [];
             var riders = ridersByNet[net] || [];
             var laterals = lateralsByNet[net] || [];
-            var wire = { netName: net, drivers: drivers, riders: riders, laterals: laterals };
+            var netId = net.slice(1, net.length - 1);
+            var netName = netId;
+            var displayNetName = false;
+            for (var possibleNetName in _this.netnames) {
+                var candidate_net = _this.netnames[possibleNetName];
+                if (candidate_net.bits.includes(Number(netId))) {
+                    netName = possibleNetName;
+                    displayNetName = !candidate_net.hide_name;
+                    break;
+                }
+            }
+            var wire = { netName: netName, displayNetName: displayNetName, drivers: drivers, riders: riders, laterals: laterals };
             drivers.concat(riders).concat(laterals).forEach(function (port) {
                 port.wire = wire;
             });
             return wire;
-        });
+        }, this);
         this.wires = wires;
     };
     return FlatModule;

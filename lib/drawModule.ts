@@ -19,7 +19,7 @@ export default function drawModule(g: ElkModel.Graph, module: FlatModule) {
     removeDummyEdges(g);
     const lines: onml.Element[] = _.flatMap(g.edges, (e: ElkModel.Edge) => {
         const netId = ElkModel.wireNameLookup[e.id];
-        const netName = 'net_' + netId.slice(1, netId.length - 1);
+        const netName = 'net_' + netId;
         return _.flatMap(e.sections, (s: ElkModel.Section) => {
             let startPoint = s.startPoint;
             s.bendPoints = s.bendPoints || [];
@@ -55,6 +55,17 @@ export default function drawModule(g: ElkModel.Graph, module: FlatModule) {
             return bends.concat(line);
         });
     });
+    const line_labels: onml.Element[] = _.map(g.edges.filter((e) => e.labels), function (e) {
+        const netId = ElkModel.wireNameLookup[e.id];
+        const netName = 'net_' + netId;
+        const label = e.labels[0];
+        return ['text', {
+            x: String(label['x']),
+            y: String(label['y']),
+
+            class: netName,
+        }, label['text']];
+    })
     const svgAttrs: onml.Attributes = Skin.skin[1];
     svgAttrs.width = g.width.toString();
     svgAttrs.height = g.height.toString();
@@ -67,7 +78,7 @@ export default function drawModule(g: ElkModel.Graph, module: FlatModule) {
             }
         },
     });
-    const elements: onml.Element[] = [styles, ...nodes, ...lines];
+    const elements: onml.Element[] = [styles, ...nodes, ...lines, ...line_labels];
     const ret: onml.Element = ['svg', svgAttrs, ...elements];
     return onml.s(ret);
 }

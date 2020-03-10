@@ -59,6 +59,7 @@ export namespace ElkModel {
         junctionPoints?: WirePoint[];
         bendPoints?: WirePoint[];
         sections?: Section[];
+        labels?: Label[];
     }
 
     export interface ExtendedEdge {
@@ -66,6 +67,7 @@ export namespace ElkModel {
         sources: [ string ];
         targets: [ string ];
         layoutOptions?: LayoutOptions;
+        labels?: Label[];
     }
 
     export interface LayoutOptions {
@@ -73,12 +75,12 @@ export namespace ElkModel {
     }
 
     export interface Label {
-        id: string;
+        id?: string;
         text: string;
-        x: number;
-        y: number;
-        height: number;
-        width: number;
+        x?: number;
+        y?: number;
+        height?: number;
+        width?: number;
     }
 }
 export function buildElkGraph(module: FlatModule): ElkModel.Graph {
@@ -199,6 +201,9 @@ function route(sourcePorts, targetPorts, edges: ElkModel.Edge[]) {
                 sources: [sourceKey],
                 targets: [targetKey],
             };
+            if (targetPort.wire.displayNetName) {
+                edge.labels = [{text: targetPort.wire.netName, height:16, width: (6 * targetPort.wire.netName.length),}];
+            }
             ElkModel.wireNameLookup[id] = targetPort.wire.netName;
             if (sourcePort.parentNode.type !== '$dff') {
                 edge.layoutOptions = { 'org.eclipse.elk.layered.priority.direction': 10 };

@@ -19,7 +19,7 @@ function drawModule(g, module) {
     removeDummyEdges(g);
     var lines = _.flatMap(g.edges, function (e) {
         var netId = elkGraph_1.ElkModel.wireNameLookup[e.id];
-        var netName = 'net_' + netId.slice(1, netId.length - 1);
+        var netName = 'net_' + netId;
         return _.flatMap(e.sections, function (s) {
             var startPoint = s.startPoint;
             s.bendPoints = s.bendPoints || [];
@@ -56,6 +56,16 @@ function drawModule(g, module) {
             return bends.concat(line);
         });
     });
+    var line_labels = _.map(g.edges.filter(function (e) { return e.labels; }), function (e) {
+        var netId = elkGraph_1.ElkModel.wireNameLookup[e.id];
+        var netName = 'net_' + netId;
+        var label = e.labels[0];
+        return ['text', {
+                x: String(label['x']),
+                y: String(label['y']),
+                class: netName,
+            }, label['text']];
+    });
     var svgAttrs = Skin_1.default.skin[1];
     svgAttrs.width = g.width.toString();
     svgAttrs.height = g.height.toString();
@@ -67,7 +77,7 @@ function drawModule(g, module) {
             }
         },
     });
-    var elements = [styles].concat(nodes, lines);
+    var elements = [styles].concat(nodes, lines, line_labels);
     var ret = ['svg', svgAttrs].concat(elements);
     return onml.s(ret);
 }
