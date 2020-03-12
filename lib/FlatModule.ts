@@ -37,8 +37,8 @@ export class FlatModule {
         }
         const top = netlist.modules[this.moduleName];
         const ports = _.map(top.ports, Cell.fromPort);
-        const cells = _.map(top.cells, (c, key) => Cell.fromYosysCell(c, key));
         this.netnames = top.netnames;
+        const cells = _.map(top.cells, (c, key) => Cell.fromYosysCell(c, key, this.netnames));
         this.nodes = cells.concat(ports);
         // populated by createWires
         this.wires = [];

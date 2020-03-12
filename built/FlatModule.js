@@ -18,8 +18,8 @@ var FlatModule = /** @class */ (function () {
         }
         var top = netlist.modules[this.moduleName];
         var ports = _.map(top.ports, Cell_1.default.fromPort);
-        var cells = _.map(top.cells, function (c, key) { return Cell_1.default.fromYosysCell(c, key); });
         this.netnames = top.netnames;
+        var cells = _.map(top.cells, function (c, key) { return Cell_1.default.fromYosysCell(c, key, _this.netnames); });
         this.nodes = cells.concat(ports);
         // populated by createWires
         this.wires = [];

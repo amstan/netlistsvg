@@ -8,7 +8,7 @@ var _ = require("lodash");
 var clone = require("clone");
 var onml = require("onml");
 var Cell = /** @class */ (function () {
-    function Cell(key, type, inputPorts, outputPorts, attributes) {
+    function Cell(key, type, inputPorts, outputPorts, attributes, moduleNetNames) {
         var _this = this;
         this.key = key;
         this.type = type;
@@ -23,6 +23,12 @@ var Cell = /** @class */ (function () {
         });
         var lineChars = Math.max.apply(Math, inputPorts.filter(function (p) { return p.InsideKey; }).map(function (p) { return p.InsideKey.length; })) + Math.max.apply(Math, outputPorts.filter(function (p) { return p.InsideKey; }).map(function (p) { return p.InsideKey.length; }));
         this.genericWidth = 6 * Math.max(lineChars, 0) + 30;
+        this.airwireLengths = { in: 0, out: 0 };
+        this.airwireNames = {};
+        if (moduleNetNames) {
+            inputPorts.forEach(function (p) { return _this.discoverAirwires(p, 'in', moduleNetNames); });
+            outputPorts.forEach(function (p) { return _this.discoverAirwires(p, 'out', moduleNetNames); });
+        }
     }
     /**
      * creates a Cell from a Yosys Port
@@ -36,7 +42,7 @@ var Cell = /** @class */ (function () {
         }
         return new Cell(name, '$_outputExt_', [new Port_1.Port('A', yPort.bits)], [], {});
     };
-    Cell.fromYosysCell = function (yCell, name) {
+    Cell.fromYosysCell = function (yCell, name, moduleNetNames) {
         var template = Skin_1.default.findSkinType(yCell.type);
         var templateInputPids = Skin_1.default.getInputPids(template);
         var templateOutputPids = Skin_1.default.getOutputPids(template);
@@ -51,7 +57,7 @@ var Cell = /** @class */ (function () {
             inputPorts = ports.filter(function (port) { return port.keyIn(inputPids_1); });
             outputPorts = ports.filter(function (port) { return port.keyIn(outputPids_1); });
         }
-        return new Cell(name, yCell.type, inputPorts, outputPorts, yCell.attributes);
+        return new Cell(name, yCell.type, inputPorts, outputPorts, yCell.attributes, moduleNetNames);
     };
     Cell.fromConstantInfo = function (name, constants) {
         return new Cell(name, '$_constant_', [], [new Port_1.Port('Y', constants)], {});
@@ -190,10 +196,10 @@ var Cell = /** @class */ (function () {
             var inTemplates_1 = Skin_1.default.getPortsWithPrefix(template, 'in');
             var outTemplates_1 = Skin_1.default.getPortsWithPrefix(template, 'out');
             var inPorts = this.inputPorts.map(function (ip, i) {
-                return ip.getGenericElkPort(i, inTemplates_1, 'in', _this.genericWidth);
+                return ip.getGenericElkPort(i, inTemplates_1, 'in', _this.genericWidth, _this.airwireLengths.in);
             });
             var outPorts = this.outputPorts.map(function (op, i) {
-                return op.getGenericElkPort(i, outTemplates_1, 'out', _this.genericWidth);
+                return op.getGenericElkPort(i, outTemplates_1, 'out', _this.genericWidth, _this.airwireLengths.out);
             });
             var cell = {
                 id: this.key,
@@ -315,6 +321,7 @@ var Cell = /** @class */ (function () {
                     portClone.push(['text', { x: 5, y: 0, class: "insideInputPortLabel" }, port.InsideKey]);
                     portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.InsideKey;
                 }
+                _this.renderAirwire(port, portClone, 'in');
                 tempclone.push(portClone);
             });
             this.outputPorts.forEach(function (port, i) {
@@ -323,10 +330,12 @@ var Cell = /** @class */ (function () {
                 portClone[1].transform = 'translate(' + _this.genericWidth + ','
                     + (outstartY_1 + i * outgap_1) + ')';
                 portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.Key;
+                portClone[1].class = 'hi';
                 if (port.InsideKey) {
                     portClone.push(['text', { x: -3, y: 0, class: "insideOutputPortLabel" }, port.InsideKey]);
                     portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.InsideKey;
                 }
+                _this.renderAirwire(port, portClone, 'out');
                 tempclone.push(portClone);
             });
             // first child of generic must be a text node.
@@ -386,6 +395,55 @@ var Cell = /** @class */ (function () {
             return Number(template[1]['s:height']) + gap * (this.outputPorts.length - 2);
         }
         return Number(template[1]['s:height']);
+    };
+    Cell.prototype.discoverAirwires = function (port, dir, moduleNetNames) {
+        var netId = port.maxVal();
+        var found = false;
+        var netName;
+        var display;
+        for (var possibleNetName in moduleNetNames) {
+            var candidate_net = moduleNetNames[possibleNetName];
+            if (candidate_net.bits.includes(netId)) {
+                netName = possibleNetName;
+                display = !candidate_net.hide_name;
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            return;
+        this.airwireNames[netId] = { name: netName, display: display };
+        if (!display)
+            return;
+        var airwireLength = netName.length * 6;
+        if (airwireLength)
+            airwireLength += 30;
+        if (airwireLength > this.airwireLengths[dir])
+            this.airwireLengths[dir] = airwireLength;
+    };
+    Cell.prototype.renderAirwire = function (port, g, dir) {
+        var netId = port.maxVal();
+        var airwire = this.airwireNames[netId];
+        if (!airwire) {
+            return; // probably a port that's not connected to anything, or no netname available
+        }
+        g[1].class = 'net_' + airwire.name;
+        if (airwire.display) {
+            var x_start = 0;
+            var x_end = 0;
+            if (dir == 'in')
+                x_start = -this.airwireLengths['in'];
+            if (dir == 'out')
+                x_end = this.airwireLengths['out'];
+            g.push(['text',
+                { x: x_start + 10, y: 0 },
+                airwire.name]);
+            if (dir == 'out')
+                g[4][1].x += 20;
+            g.push(['line',
+                { x1: x_start, x2: x_end, y1: 0, y2: 0 }
+            ]);
+        }
     };
     return Cell;
 }());

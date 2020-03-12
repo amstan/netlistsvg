@@ -71,7 +71,7 @@ var Port = /** @class */ (function () {
         }
         return maxNum;
     };
-    Port.prototype.getGenericElkPort = function (index, templatePorts, dir, genericWidth) {
+    Port.prototype.getGenericElkPort = function (index, templatePorts, dir, genericWidth, extraLabelPadding) {
         var nkey = this.parentNode.Key;
         var type = this.parentNode.getTemplate()[1]['s:type'];
         if (index === 0) {
@@ -107,6 +107,7 @@ var Port = /** @class */ (function () {
                     ret.x = genericWidth;
                     ret.labels[0].x = genericWidth;
                 }
+                ret.labels[0].width += extraLabelPadding;
             }
             return ret;
         }
@@ -132,6 +133,7 @@ var Port = /** @class */ (function () {
                     ret.x = genericWidth;
                     ret.labels[0].x = genericWidth;
                 }
+                ret.labels[0].width += extraLabelPadding;
             }
             return ret;
         }

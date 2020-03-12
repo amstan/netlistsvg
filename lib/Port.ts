@@ -94,6 +94,7 @@ export class Port {
         templatePorts: any[],
         dir: string,
         genericWidth: number,
+        extraLabelPadding: number,
     ): ElkModel.Port {
         const nkey = this.parentNode.Key;
         const type = this.parentNode.getTemplate()[1]['s:type'];
@@ -133,6 +134,7 @@ export class Port {
                     ret.x = genericWidth;
                     ret.labels[0].x = genericWidth;
                 }
+                ret.labels[0].width += extraLabelPadding;
             }
 
             return ret;
@@ -158,6 +160,7 @@ export class Port {
                     ret.x = genericWidth;
                     ret.labels[0].x = genericWidth;
                 }
+                ret.labels[0].width += extraLabelPadding;
             }
             return ret;
         }

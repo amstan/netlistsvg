@@ -21,7 +21,7 @@ export default class Cell {
         return new Cell(name, '$_outputExt_', [new Port('A', yPort.bits)], [], {});
     }
 
-    public static fromYosysCell(yCell: Yosys.Cell, name: string) {
+    public static fromYosysCell(yCell: Yosys.Cell, name: string, moduleNetNames: Yosys.NetNameMap) {
         const template = Skin.findSkinType(yCell.type);
         const templateInputPids = Skin.getInputPids(template);
         const templateOutputPids = Skin.getOutputPids(template);
@@ -36,7 +36,7 @@ export default class Cell {
             inputPorts = ports.filter((port) => port.keyIn(inputPids));
             outputPorts = ports.filter((port) => port.keyIn(outputPids));
         }
-        return new Cell(name, yCell.type, inputPorts, outputPorts, yCell.attributes);
+        return new Cell(name, yCell.type, inputPorts, outputPorts, yCell.attributes, moduleNetNames);
     }
 
     public static fromConstantInfo(name: string, constants: number[]): Cell {
@@ -83,12 +83,15 @@ export default class Cell {
     protected outputPorts: Port[];
     protected attributes: Yosys.CellAttributes;
     private genericWidth: number;
+    private airwireLengths: {in: number, out: number};
+    private airwireNames: {number?: {name: string, display: boolean}}
 
     constructor(key: string,
                 type: string,
                 inputPorts: Port[],
                 outputPorts: Port[],
-                attributes: Yosys.CellAttributes) {
+                attributes: Yosys.CellAttributes,
+                moduleNetNames?: Yosys.NetNameMap) {
         this.key = key;
         this.type = type;
         this.inputPorts = inputPorts;
@@ -104,6 +107,13 @@ export default class Cell {
         const lineChars = Math.max(...inputPorts .filter((p) => p.InsideKey).map((p) => p.InsideKey.length)) +
                           Math.max(...outputPorts.filter((p) => p.InsideKey).map((p) => p.InsideKey.length));
         this.genericWidth = 6 * Math.max(lineChars, 0) + 30;
+
+        this.airwireLengths = {in: 0, out: 0};
+        this.airwireNames = {};
+        if (moduleNetNames) {
+            inputPorts.forEach((p) => this.discoverAirwires(p, 'in', moduleNetNames));
+            outputPorts.forEach((p) => this.discoverAirwires(p, 'out', moduleNetNames));
+        }
     }
 
     public get Type(): string {
@@ -205,9 +215,9 @@ export default class Cell {
             const inTemplates: any[] = Skin.getPortsWithPrefix(template, 'in');
             const outTemplates: any[] = Skin.getPortsWithPrefix(template, 'out');
             const inPorts = this.inputPorts.map((ip, i) =>
-                ip.getGenericElkPort(i, inTemplates, 'in', this.genericWidth));
+                ip.getGenericElkPort(i, inTemplates, 'in', this.genericWidth, this.airwireLengths.in));
             const outPorts = this.outputPorts.map((op, i) =>
-                op.getGenericElkPort(i, outTemplates, 'out', this.genericWidth));
+                op.getGenericElkPort(i, outTemplates, 'out', this.genericWidth, this.airwireLengths.out));
             const cell: ElkModel.Cell = {
                 id: this.key,
                 width: Number(template[1]['s:width']),
@@ -325,6 +335,7 @@ export default class Cell {
                     portClone.push(['text', {x: 5, y: 0, class: "insideInputPortLabel"}, port.InsideKey]);
                     portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.InsideKey;
                 }
+                this.renderAirwire(port, portClone, 'in');
                 tempclone.push(portClone);
             });
             this.outputPorts.forEach((port, i) => {
@@ -333,10 +344,12 @@ export default class Cell {
                 portClone[1].transform = 'translate(' + this.genericWidth + ','
                     + (outstartY + i * outgap) + ')';
                 portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.Key;
+                portClone[1].class = 'hi';
                 if (port.InsideKey) {
                     portClone.push(['text', {x: -3, y: 0, class: "insideOutputPortLabel"}, port.InsideKey]);
                     portClone[1].id = 'port_' + port.parentNode.Key + '~' + port.InsideKey;
                 }
+                this.renderAirwire(port, portClone, 'out');
                 tempclone.push(portClone);
             });
             // first child of generic must be a text node.
@@ -396,6 +409,65 @@ export default class Cell {
         return Number(template[1]['s:height']);
     }
 
+    private discoverAirwires(port: Port, dir: 'in'|'out', moduleNetNames?: Yosys.NetNameMap) {
+        const netId = port.maxVal();
+
+        var found = false;
+        var netName: string;
+        var display: boolean;
+        for (let possibleNetName in moduleNetNames) {
+            const candidate_net: Yosys.Net = moduleNetNames[possibleNetName];
+
+            if(candidate_net.bits.includes(netId)) {
+                netName = possibleNetName;
+                display = !candidate_net.hide_name;
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            return;
+
+        this.airwireNames[netId] = {name: netName, display: display};
+
+        if (!display)
+            return;
+
+        var airwireLength = netName.length * 6;
+        if (airwireLength) airwireLength += 30;
+
+        if (airwireLength > this.airwireLengths[dir])
+            this.airwireLengths[dir] = airwireLength;
+    }
+
+    private renderAirwire(port: Port, g, dir: 'in'|'out') {
+        const netId = port.maxVal();
+
+        const airwire = this.airwireNames[netId]
+        if (!airwire) {
+            return; // probably a port that's not connected to anything, or no netname available
+        }
+
+        g[1].class = 'net_' + airwire.name;
+
+        if (airwire.display) {
+            var x_start = 0;
+            var x_end = 0;
+            if (dir == 'in')
+                x_start = -this.airwireLengths['in'];
+            if (dir == 'out')
+                x_end = this.airwireLengths['out'];
+
+            g.push(['text',
+                   {x: x_start + 10, y: 0},
+                   airwire.name]);
+            if (dir == 'out') g[4][1].x += 20;
+
+            g.push(['line',
+                   {x1: x_start, x2: x_end, y1: 0, y2: 0}
+            ])
+        }
+    }
 }
 
 function setGenericSize(tempclone, width, height) {
